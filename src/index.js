@@ -19,7 +19,19 @@ function verifyIfExistsAccountCPF(request, response, next) {
     request.customer = customer;
 
     return next();
-}
+};
+
+function getBalance(statement) {
+    const balance = statement.reduce((acumulador, operation) => {
+        if(operation.type === "credit") {
+            return acumulador + operation.amount;
+        } else {
+            return acumulador - operation.amount;
+        }
+    }, 0); //valor inicial do acumulador
+
+    return balance;
+};
 
 app.post("/account", (request, response) => {
     const { cpf, name } = request.body;
@@ -64,6 +76,27 @@ app.post("/deposit", verifyIfExistsAccountCPF, (request, response) => {
     return response.status(201).send();
 
 });
+
+app.post("/withdraw", verifyIfExistsAccountCPF, (request, response) => {
+    const { customer } = request;
+    const { amount } = request.body;
+
+    const balance = getBalance(customer.statement);
+
+    if (balance < amount) {
+        return response.status(400).json({ error: "Insuficient funds!" });
+    }
+
+    const statementOperation = {
+        amount,
+        created_at: new Date(),
+        type: "debit"
+    }
+
+    customer.statement.push(statementOperation);
+
+    return response.status(201).send();
+})
 
 app.listen(3333, () => {
     console.log('Servidor rodando na porta 3333');
